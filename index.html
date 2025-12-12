@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebGIS – Kekayaan Negara</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-sidebar-v2/css/leaflet-sidebar.css" />
+
+    <style>
+        /* === 1. GLOBAL VARIABLES === */
+        :root {
+            --primary: #7367F0;       
+            --primary-soft: #A095F5;  
+            --bg-body: #F4F5FA;       
+            --text-main: #5E5873;     
+            --header-h: 70px;         
+        }
+
+        html, body { margin: 0; padding: 0; height: 100%; font-family: 'Poppins', sans-serif; background: var(--bg-body); overflow: hidden; }
+
+        /* === 2. HEADER === */
+        .top-banner {
+            position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+            padding: 0 30px; display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(to right, var(--primary), var(--primary-soft));
+            box-shadow: 0 4px 15px rgba(115, 103, 240, 0.3);
+            z-index: 9999;
+        }
+        .banner-title { font-size: 20px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .banner-right { display: flex; align-items: center; gap: 20px; }
+        .logo-header { height: 45px; width: auto; transition: transform 0.3s; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+        .logo-header:hover { transform: scale(1.1); }
+
+        .banner-right button {
+            padding: 10px 25px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 50px; cursor: pointer; font-family: 'Poppins'; font-weight: 600; transition: 0.3s;
+        }
+        .banner-right button:hover { background: white; color: var(--primary); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        /* === 3. MAP AREA === */
+        #map { width: 100%; height: 100%; padding-top: var(--header-h); box-sizing: border-box; z-index: 1; }
+        .leaflet-control-zoom, .leaflet-draw-toolbar, .leaflet-control-geocoder { display: none !important; }
+
+        /* === 4. SIDEBAR === */
+        .leaflet-sidebar { 
+            top: calc(var(--header-h) + 15px) !important; 
+            height: calc(100% - var(--header-h) - 30px) !important; 
+            border-radius: 15px;
+            box-shadow: 5px 5px 25px rgba(0,0,0,0.1) !important;
+            border: none !important; 
+            z-index: 2000 !important;
+            overflow: hidden; 
+        }
+
+        .leaflet-sidebar-tabs { background: #fff; border-right: 1px solid #f0f0f0; padding: 15px 0; }
+        .leaflet-sidebar-tabs > ul { margin: 0; padding: 0; list-style: none; }
+        .leaflet-sidebar-tabs > ul > li { margin: 5px 0; display: flex; justify-content: center; }
+        .leaflet-sidebar-tabs > ul > li > a { 
+            color: #b9b9c3; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; transition: 0.3s; background: transparent; display: block; text-align: center;
+        }
+        .leaflet-sidebar-tabs > ul > li.active > a { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(115, 103, 240, 0.4); }
+        .leaflet-sidebar-tabs > ul > li:hover > a { color: var(--primary); background: #f8f8f8; }
+
+        .leaflet-sidebar-content { background: #fff; padding: 0; }
+        .sidebar-header { 
+            background: #fff; color: var(--primary); padding: 25px; font-weight: 700; font-size: 18px;
+            border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; 
+        }
+        .sidebar-close { cursor: pointer; color: #ccc; font-size: 20px; transition:0.3s; } .sidebar-close:hover { color: #EA5455; transform: rotate(90deg); }
+        
+        .sidebar-section { padding: 20px 25px; border-bottom: 1px solid #f8f8f8; }
+        .sidebar-section h4 { color: #a6a4b0; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px; }
+
+        /* === 5. TOOLS & BUTTONS === */
+        .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .tool-btn { display: flex; flex-direction: column; align-items: center; background: #f8f8f8; border: 1px solid transparent; border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.2s; color: #666; }
+        .tool-btn:hover { background: #fff; border-color: var(--primary); color: var(--primary); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .tool-btn i { font-size: 20px; margin-bottom: 8px; }
+        .tool-btn span { font-size: 12px; font-weight: 500; }
+        
+        .info-card { background: #fcfcfc; border: 1px solid #eee; border-left: 4px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+        .info-key { font-size: 10px; text-transform: uppercase; color: #aaa; letter-spacing: 0.5px; display:block; }
+        .info-val { font-size: 14px; font-weight: 600; color: #333; display:block;}
+        .legend-line-solid { display: inline-block; width: 35px; height: 3px; background: #333; margin-right: 10px; }
+
+        /* === 6. MODAL === */
+        .modal-overlay { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(34, 41, 47, 0.7); backdrop-filter: blur(4px); animation: fadeIn 0.3s; }
+        .modal-content { background: #fff; margin: 12vh auto; width: 90%; max-width: 480px; border-radius: 15px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.25); animation: slideUp 0.4s; }
+        .modal-header { background: var(--primary); padding: 25px; color: white; text-align: center; }
+        .modal-body { padding: 30px; line-height: 1.8; color: #5E5873; font-size: 14px; text-align: center; }
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 12px 35px; border-radius: 8px; margin-top: 20px; cursor: pointer; width: 100%; font-weight: 600; font-size: 14px; transition: 0.3s; box-shadow: 0 4px 15px rgba(115, 103, 240, 0.4); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(115, 103, 240, 0.6); }
+
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{transform:translateY(50px);opacity:0} to{transform:translateY(0);opacity:1} }
+    </style>
+</head>
+<body>
+
+    <div class="top-banner">
+        <div class="banner-title"><i class="fa fa-globe"></i> WebGIS Sungai Citarik</div>
+        <div class="banner-right">
+            <img src="UPI.png" alt="Logo UPI" class="logo-header" title="Universitas Pendidikan Indonesia">
+            <img src="BBWS.png" alt="Logo BBWS" class="logo-header" title="Balai Besar Wilayah Sungai">
+            <button onclick="toggleModal('aboutModal', true)">Tentang WebGIS</button>
+        </div>
+    </div>
+
+    <div id="sidebar" class="leaflet-sidebar collapsed">
+        <div class="leaflet-sidebar-tabs">
+            <ul role="tablist">
+                <li><a href="#layers" role="tab"><i class="fa fa-layer-group"></i></a></li>
+                <li><a href="#tools" role="tab"><i class="fa fa-tools"></i></a></li>
+                <li><a href="#legend" role="tab"><i class="fa fa-list-ul"></i></a></li>
+                <li><a href="#info" role="tab"><i class="fa fa-file-alt"></i></a></li>
+            </ul>
+        </div>
+
+        <div class="leaflet-sidebar-content">
+            <div class="leaflet-sidebar-pane" id="layers">
+                <h1 class="sidebar-header">Layer Peta <div class="sidebar-close" onclick="sidebar.close()">&times;</div></h1>
+                <div class="sidebar-section">
+                    <h4>Peta Dasar</h4>
+                    <div style="display:flex; gap:10px;">
+                        <div class="tool-btn" style="flex:1; padding:10px;" onclick="setBasemap(osm)"><span>Peta Jalan</span></div>
+                        <div class="tool-btn" style="flex:1; padding:10px;" onclick="setBasemap(sat)"><span>Satelit</span></div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Data Spasial</h4>
+                    <label class="layer-item" style="display:flex; align-items:center; margin-bottom:15px; cursor:pointer;">
+                        <input type="checkbox" onchange="toggleLayer(batasLayer, this.checked)" style="margin-right:10px; accent-color:#7367F0;"> Batas Desa
+                    </label>
+                    <label class="layer-item" style="display:flex; align-items:center; margin-bottom:15px; cursor:pointer;">
+                        <input type="checkbox" checked onchange="toggleLayer(rtrwLayer, this.checked)" style="margin-right:10px; accent-color:#7367F0;"> Pola Ruang (RTRW)
+                    </label>
+                    <label class="layer-item" style="display:flex; align-items:center; margin-bottom:15px; cursor:pointer;">
+                        <input type="checkbox" checked onchange="toggleLayer(bidangLayer, this.checked)" style="margin-right:10px; accent-color:#7367F0;"> Bidang Tanah
+                    </label>
+                    <label class="layer-item" style="display:flex; align-items:center; margin-bottom:15px; cursor:pointer;">
+                        <input type="checkbox" checked onchange="toggleLayer(sempadanLayer, this.checked)" style="margin-right:10px; accent-color:#7367F0;"> Sempadan Sungai
+                    </label>
+                     <label class="layer-item" style="display:flex; align-items:center; margin-bottom:15px; cursor:pointer;">
+                        <input type="checkbox" checked onchange="toggleLayer(sungaiLayer, this.checked)" style="margin-right:10px; accent-color:#7367F0;"> Jaringan Sungai
+                    </label>
+                </div>
+            </div>
+
+            <div class="leaflet-sidebar-pane" id="tools">
+                <h1 class="sidebar-header">Alat & Navigasi <div class="sidebar-close" onclick="sidebar.close()">&times;</div></h1>
+                
+                <div class="sidebar-section">
+                    <h4>Pencarian</h4>
+                    <div style="display:flex; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                        <input type="text" id="search-input" placeholder="Cari nama lokasi..." style="width:100%; padding:12px; border:1px solid #eee; border-radius:8px 0 0 8px; outline:none;">
+                        <button onclick="runSearch()" style="background:#7367F0; color:white; border:none; padding:0 20px; border-radius:0 8px 8px 0;"><i class="fa fa-search"></i></button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h4>Pengukuran (Measure)</h4>
+                    <div class="tool-grid">
+                        <div class="tool-btn" onclick="startMeasure('dist')"><i class="fa fa-ruler-horizontal" style="color:#28C76F;"></i><span>Jarak (m)</span></div>
+                        <div class="tool-btn" onclick="startMeasure('area')"><i class="fa fa-ruler-combined" style="color:#FF9F43;"></i><span>Luas (m²)</span></div>
+                    </div>
+                    <small style="color:#999; margin-top:5px; display:block;">*Hasil pengukuran akan muncul di tab Informasi</small>
+                </div>
+
+                <div class="sidebar-section">
+                    <h4>Digitasi Manual</h4>
+                    <div class="tool-grid">
+                        <div class="tool-btn" onclick="startDraw('polygon')"><i class="fa fa-draw-polygon"></i><span>Area</span></div>
+                        <div class="tool-btn" onclick="startDraw('polyline')"><i class="fa fa-route"></i><span>Garis</span></div>
+                        <div class="tool-btn" onclick="startDraw('marker')"><i class="fa fa-map-marker-alt"></i><span>Titik</span></div>
+                        <div class="tool-btn" onclick="clearDraw()"><i class="fa fa-trash" style="color:#EA5455;"></i><span>Hapus</span></div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h4>Kontrol Peta</h4>
+                    <div class="tool-grid">
+                        <div class="tool-btn" onclick="map.zoomIn()"><i class="fa fa-plus"></i><span>Perbesar</span></div>
+                        <div class="tool-btn" onclick="map.zoomOut()"><i class="fa fa-minus"></i><span>Perkecil</span></div>
+                        <div class="tool-btn" onclick="map.flyTo([-6.98, 107.78], 13)"><i class="fa fa-home"></i><span>Reset</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="leaflet-sidebar-pane" id="legend">
+                <h1 class="sidebar-header">Legenda <div class="sidebar-close" onclick="sidebar.close()">&times;</div></h1>
+                <div class="sidebar-section">
+                    <h4>Batas Administrasi</h4>
+                    <div style="margin-bottom:10px; display:flex; align-items:center;">
+                        <span class="legend-line-solid"></span> Batas Desa
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Status Tanah</h4>
+                    <div style="margin-bottom:10px;"><span style="display:inline-block; width:25px; height:12px; background:#EA5455; margin-right:10px; border-radius:3px;"></span> Hak Milik</div>
+                    <div style="margin-bottom:10px;"><span style="display:inline-block; width:25px; height:12px; background:#FF9F43; margin-right:10px; border-radius:3px;"></span> Hak Guna / Pakai</div>
+                    <div style="margin-bottom:10px;"><span style="display:inline-block; width:25px; height:12px; background:#B9B9C3; margin-right:10px; border-radius:3px;"></span> Belum Terdaftar</div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Pola Ruang (RTRW)</h4>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div><span style="display:inline-block; width:15px; height:15px; background:#FFC107; margin-right:5px; border-radius:50%;"></span> Industri</div>
+                        <div><span style="display:inline-block; width:15px; height:15px; background:#FF9800; margin-right:5px; border-radius:50%;"></span> Permukiman</div>
+                        <div><span style="display:inline-block; width:15px; height:15px; background:#4CAF50; margin-right:5px; border-radius:50%;"></span> Pertanian</div>
+                        <div><span style="display:inline-block; width:15px; height:15px; background:#1B5E20; margin-right:5px; border-radius:50%;"></span> Lindung</div>
+                        <div><span style="display:inline-block; width:15px; height:15px; background:#E91E63; margin-right:5px; border-radius:50%;"></span> Pertahanan</div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Hidrologi</h4>
+                    <div style="margin-bottom:10px;"><span style="display:inline-block; width:30px; height:4px; background:#0D47A1; margin-right:10px;"></span> Sempadan Sungai</div>
+                    <div style="margin-bottom:10px;"><span style="display:inline-block; width:30px; height:4px; background:#42A5F5; margin-right:10px;"></span> Sungai Lama</div>
+                </div>
+            </div>
+
+            <div class="leaflet-sidebar-pane" id="info">
+                <h1 class="sidebar-header">Informasi <div class="sidebar-close" onclick="sidebar.close()">&times;</div></h1>
+                <div id="info-content" style="padding:25px;">
+                    <div style="text-align:center; color:#bbb; margin-top:50px;">
+                        <i class="fa fa-mouse-pointer" style="font-size:50px; margin-bottom:20px;"></i><br>
+                        Klik objek di peta atau gunakan alat ukur.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="welcomeModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0;">Selamat Datang!</h3>
+            </div>
+            <div class="modal-body">
+                <p style="font-weight:600; font-size:16px; color:#333;">Sistem Informasi Geografis<br>Aset & Kekayaan Negara Sungai Citarik</p>
+                <p>Platform ini menyajikan data spasial interaktif terkait sebaran aset, status bidang tanah, dan rencana tata ruang secara real-time.</p>
+                <button class="btn-primary" onclick="toggleModal('welcomeModal', false)">Mulai Jelajahi</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="aboutModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin:0;">Tentang Aplikasi</h3>
+            </div>
+            <div class="modal-body">
+                <p>Dikembangkan sebagai sarana transparansi dan monitoring data spasial di wilayah Sungai Citarik.</p>
+                <ul style="text-align:left; color:#555; font-size:13px;">
+                    <li>Visualisasi Bidang Tanah & Status Hak</li>
+                    <li>Overlay Rencana Tata Ruang (RTRW)</li>
+                    <li>Analisis Sempadan Sungai</li>
+                </ul>
+                <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:15px;">
+                    <div style="text-align:left;">
+                        <b>Deliani Nurizka Putri</b><br>
+                        <b>Handaru Akmal Panandjoeng</b><br>
+                        <b>Listi Siti Saadah</b><br>
+                        <b>Muhammad Dzikri Firdaus</b><br>
+                        <b>Muhammad Sirojuddin</b><br>
+                        <b>Setia Dwi Puspita </b><br>
+                        <b>Shazadil Akhyar Rezky</b><br>
+                        <b>Silfia Khoerunnisa </b><br>
+                        <span style="font-size:12px; color:#888;">Developer</span>
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="toggleModal('aboutModal', false)">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet-sidebar-v2/js/leaflet-sidebar.js"></script>
+    <script src="https://unpkg.com/togeojson@0.16.0/dist/togeojson.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mhasbie/leaflet-filelayer/leaflet-filelayer.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        function toggleModal(id, show) {
+            document.getElementById(id).style.display = show ? 'block' : 'none';
+        }
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(function() { toggleModal('welcomeModal', true); }, 800);
+        });
+    </script>
+</body>
+</html>
